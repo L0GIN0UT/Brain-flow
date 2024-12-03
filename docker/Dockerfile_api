@@ -1,0 +1,23 @@
+FROM python:3.10-alpine as base
+FROM base as builder
+RUN mkdir /install
+WORKDIR /install
+FROM base
+COPY --from=builder /install /usr/local
+RUN apk --no-cache add libpq
+
+WORKDIR /app
+COPY app/requirements.txt requirements.txt
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt --default-timeout=1000 --no-cache-dir \
+    && pip install pydantic[email] \
+    && pip install rethinkdb \
+    && pip install sqlalchemy_utils \
+    && pip install sqlalchemy \
+    && pip install looseversion
+
+COPY app/config /app/config
+COPY app .
+
+#WORKDIR /app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port=8001"]

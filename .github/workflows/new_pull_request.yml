@@ -1,0 +1,32 @@
+name: Notification check for Pull Request
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Send telegram message
+      if: ${{always()}}
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.MY_TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: |
+          << BRAIN FLOW >>
+          
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.head_ref }}
+          Pull Request: ${{ github.event.pull_request.title }}
+          Github Username: ${{ github.event.pull_request.user.login }}
+          Request State: ${{ github.event.pull_request.state }}
+          ${{ github.event.pull_request.html_url }}

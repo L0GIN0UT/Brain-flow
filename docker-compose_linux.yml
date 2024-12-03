@@ -1,0 +1,144 @@
+version: '3.7'
+services:
+  pg_db:
+    container_name: pg_db
+    image: postgres:15.4-alpine3.18
+    restart: always
+    env_file: ./.env
+    volumes:
+      - ./database/pg_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    networks:
+      - desync
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgadmin.com
+      PGADMIN_DEFAULT_PASSWORD: password
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "15432:80"
+    networks:
+      - desync
+    depends_on:
+      - pg_db
+
+  redis:
+    container_name: redis_module
+    image: redis:alpine
+    networks:
+      - desync
+
+  rethink_db:
+    container_name: rethink_db
+    image: rethinkdb:latest
+    ports:
+      - "28015:28015"
+      - "29015:29015"
+    healthcheck:
+      test: ["CMD-SHELL", "rethinkdb --version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - desync
+
+  test_stream:
+    container_name: test_stream
+    build:
+      context: .
+      dockerfile: docker/linux/Dockerfile_test_stream_linux
+    env_file: ./.env
+    entrypoint: /opt/app/run_test_stream.sh
+    networks:
+      - desync
+
+  etl:
+    container_name: etl
+    build:
+      context: .
+      dockerfile: docker/linux/Dockerfile_linux
+    env_file: ./.env
+    volumes:
+      - ./etl/logs:/opt/app/logs/
+    entrypoint: ["/opt/app/wait-for-it.sh", "-s" , "-t", "60", "pg_db:5432", "--", "python", "main.py"]
+    networks:
+      - desync
+
+  desync_api:
+    container_name: desync_api
+    build:
+      context: .
+      dockerfile: docker/Dockerfile_api
+    env_file: ./.env
+    volumes:
+      - ./app/avatar:/app/avatar/
+      - ./app/logo:/app/logo/
+      - ./.env:/app/.env
+      - ./app/logs:/app/logs/
+    command: uvicorn main:app --workers 1 --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+      - etl
+    networks:
+      - desync
+    healthcheck:
+      test: [ "CMD-SHELL", "curl --fail http://localhost:8001 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  nginx:
+    container_name: dev_web
+    restart: on-failure
+    image: nginx:latest
+    volumes:
+      - ./nginx_conf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx_conf/configs:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    networks:
+      - desync
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  brainflow_client:
+    container_name: brainflow_client
+    image: brainflow-client:dev
+    ports:
+      - "8081:80"
+    networks:
+      - desync
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  test:
+    container_name: desync_api_test
+    build:
+      context: .
+      dockerfile: docker/Dockerfile_test_api
+    command: pytest .
+    env_file: ./.env
+    volumes:
+      - ./app:/app
+      - ./tests:/tests
+      - ./.env:/app/.env
+    networks:
+      - desync
+    depends_on:
+      - pg_db
+      - redis
+      - rethink_db
+
+volumes:
+  db:
+  logs:
+
+networks:
+  desync:
+    name: desync
+    driver: bridge

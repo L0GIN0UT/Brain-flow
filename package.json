@@ -1,0 +1,19 @@
+{
+  "name": "DesyncGraph",
+  "version": "1.0.23",
+  "description": "Поиск десинхронизации",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NeuroScienceInstitute/DesyncGraph.git"
+  },
+  "author": "Humba-Bumba",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NeuroScienceInstitute/DesyncGraph/issues"
+  },
+  "homepage": "https://github.com/NeuroScienceInstitute/DesyncGraph#readme"
+}

@@ -1,0 +1,50 @@
+# Используем официальный образ Windows с установленным Python
+FROM mcr.microsoft.com/windows/servercore:ltsc2019
+
+# Устанавливаем рабочую директорию
+WORKDIR C:\app
+
+# Устанавливаем Python 3.10
+RUN powershell -Command " \
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
+    Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.0/python-3.10.0-amd64.exe' -OutFile 'python-installer.exe'; \
+    Start-Process -FilePath 'python-installer.exe' -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1' -Wait; \
+    Remove-Item -Force 'python-installer.exe' \
+"
+
+# Обновляем pip
+RUN python -m pip install --upgrade pip
+
+# Установка переменной окружения PYTHONPATH
+ENV PYTHONPATH="C:\\app"
+
+# Копируем файлы requirements.txt и устанавливаем зависимости
+COPY .\app\requirements.txt C:\app\requirements.txt
+
+# Установка pytest и других необходимых инструментов
+RUN pip install --no-cache-dir -r C:\app\requirements.txt && \
+    pip install pytest pydantic[email] rethinkdb
+
+# Копируем все содержимое папки приложения и тестов в контейнер
+COPY .\app C:\app
+COPY .\tests C:\tests
+
+# Устанавливаем переменные окружения (если необходимо)
+ENV PYTHONUNBUFFERED=1
+
+# Устанавливаем рабочую директорию для запуска тестов
+WORKDIR C:\tests
+
+# Создание всех необходимых директорий и файлов логов при запуске контейнера
+ENTRYPOINT ["powershell", "-Command", "\
+    New-Item -ItemType Directory -Force -Path 'C:\\tests\\logs'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\app_admin_panel.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\interface.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\main.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\filtration_manager.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\manager_settings.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\processing_manager.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\load_data.log'; \
+    New-Item -ItemType File -Force -Path 'C:\\tests\\logs\\processes_control.log'; \
+    pytest -p no:warnings -v . \
+"]

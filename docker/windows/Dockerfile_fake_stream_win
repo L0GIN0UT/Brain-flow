@@ -1,0 +1,25 @@
+FROM python:3.10 as base
+
+FROM base as builder
+
+RUN mkdir /install
+WORKDIR /install
+COPY etl/requirements_win.txt /requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --prefix=/install -r /requirements.txt
+
+FROM base
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /opt/app
+COPY data .
+COPY docker/run_fake_stream.sh run_fake_stream.sh
+COPY config/windows/lib_lsl_win /usr/local/lib/python3.10/site-packages/pylsl/lib
+COPY config /opt/app/utils/config
+COPY etl .
+
+RUN sed -i 's/\r$//g' /opt/app/run_fake_stream.sh \
+    && chmod +x  /opt/app/run_fake_stream.sh
+
+#EXPOSE 8000

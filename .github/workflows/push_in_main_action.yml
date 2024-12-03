@@ -1,0 +1,29 @@
+name: Merge to main
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Send telegram message
+      if: ${{always()}}
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: |
+          Проект: << Brain Flow >>
+          Repository: ${{ github.repository }}
+          
+          ВЕТКА << MAIN >> ОБНОВЛЕНА !!!
+          
